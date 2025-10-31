@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tracker_site.settings')
+
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
