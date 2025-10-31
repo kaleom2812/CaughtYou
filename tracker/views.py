@@ -635,4 +635,4 @@ def last10_print_pdf(request):
 
 
 def about(request):
-    return render(request, "about.html")
+    return render(request, "About.html")
