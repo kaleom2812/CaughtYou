@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Last 10 Transactions{% endblock %}
+{% block content %}
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Last 10 transactions — Address from TX</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js and vis-network -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" />
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+  <style>
+    body { background: #0f172a; color: #fff; font-family: Inter, sans-serif; }
+    .wrap { max-width: 1100px; margin: 36px auto; padding: 18px; }
+    .glass { background: rgba(30,41,59,0.85); border-radius: 12px; padding: 18px; border: 1px solid rgba(255,255,255,0.03); }
+    .muted { color: #9ca3af; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding: 10px 8px; font-size: 0.95rem; vertical-align: middle; }
+    tr + tr td { border-top: 1px solid rgba(255,255,255,0.03); }
+    .mono { font-family: "Source Code Pro", monospace; }
+    .btn { background: linear-gradient(90deg,#3b82f6,#8b5cf6); padding:8px 12px; border-radius:8px; color:white; font-weight:600; transition:opacity .2s; }
+    .btn:hover { opacity:0.9; }
+    .small { font-size: .9rem; }
+    .accent-blue { color: #3b82f6; }
+    .table-head { color: #cbd5e1; font-weight:600; }
+    .status-success { color: #10b981; font-weight:600; }
+    .status-failed { color: #ef4444; font-weight:600; }
+    .status-unknown { color: #f59e0b; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="glass">
+      <h1 class="text-2xl font-semibold">🔎 Last 10 transactions from wallet (derived from a TX)</h1>
+      <p class="muted small mt-1">Paste a transaction hash; this will extract the <strong>from</strong> address from that tx and list the last 10 txs involving that address (newest first).</p>
+
+      <form method="get" action="{% url 'last10_from_tx' %}" class="mt-4 flex gap-3">
+        <input name="q" placeholder="Paste transaction hash (0x...)" value="{{ query }}" class="flex-1 p-3 rounded-lg bg-[#071226] border border-[#1f2a44]" />
+        <select name="chain" class="p-3 rounded-lg bg-[#071226] border border-[#1f2a44]">
+          <option value="">(Auto detect chain)</option>
+          {% for c in chains %}
+            <option value="{{ c }}" {% if chain == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn">Get last 10</button>
+      </form>
+
+      {% if err %}
+        <div class="mt-4 p-3 bg-[#2b3346] rounded-md small">
+          ⚠️ {{ err }}
+        </div>
+      {% endif %}
+
+      {% if wallet %}
+        <div class="mt-6 flex items-center justify-between gap-6 flex-wrap">
+          <div>
+            <div class="muted">Address (from transaction)</div>
+            <div class="mono font-semibold">{{ wallet }}</div>
+          </div>
+
+          <div class="flex gap-3 items-center flex-wrap">
+            <a class="btn" href="{% url 'last10_print_pdf' %}?q={{ query }}&chain={{ chain|urlencode }}">Print Transactions (PDF)</a>
+            <button class="btn" id="download-json">Download Graph JSON</button>
+            <button class="btn" id="toggleGraphBtn">Show Graph</button>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if txs %}
+      <div class="glass mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Last {{ tx_count }} transactions</h2>
+          <div class="muted small">Newest first • Total value: {{ total_value_eth }} ETH</div>
+        </div>
+
+        <div style="overflow:auto;">
+          <table>
+            <thead class="table-head small">
+              <tr>
+                <th>Hash</th>
+                <th>To</th>
+                <th>Value (ETH)</th>
+                <th>Block</th>
+                <th>Time (UTC)</th>
+                <th>Status</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in txs %}
+              <tr>
+                <td class="mono small accent-blue">{{ t.hash|slice:":10" }}…</td>
+                <td class="mono small">{% if t.to %}{{ t.to|slice:":12" }}…{% else %}<span class="muted">Contract creation</span>{% endif %}</td>
+                <td class="small">{{ t.value_eth }}</td>
+                <td class="small">{{ t.block }}</td>
+                <td class="small">{{ t.timestamp_iso|default:"N/A" }}</td>
+                <td class="small">
+                  {% if t.status == "Success" %}
+                    <span class="status-success">Success</span>
+                  {% elif t.status == "Failed" %}
+                    <span class="status-failed">Failed</span>
+                  {% else %}
+                    <span class="status-unknown">Unknown</span>
+                  {% endif %}
+                </td>
+                <td class="small">{{ t.source|default:"-" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="graph-section" class="glass mt-6 hidden">
+        <h2 class="text-lg font-semibold mb-4">Transaction Value Graph</h2>
+        <canvas id="txGraph" height="160"></canvas>
+      </div>
+
+      <div class="glass mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Transaction Flow Tree</h2>
+          <div class="muted small">Click a transaction node to view full hash & copy</div>
+        </div>
+        <div id="tree-graph" style="height:520px;border-radius:8px;background:#fff;"></div>
+      </div>
+
+      {{ txs|json_script:"last10-data" }}
+    {% endif %}
+  </div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const dataEl = document.getElementById("last10-data");
+  if (!dataEl) return;
+  const txs = JSON.parse(dataEl.textContent || "[]");
+
+  // --- Download JSON ---
+  document.getElementById("download-json")?.addEventListener("click", () => {
+    const payload = { txs, meta: { wallet: "{{ wallet }}", chain: "{{ chain }}" } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tx_graph.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- Chart.js Graph ---
+  const btn = document.getElementById("toggleGraphBtn");
+  const graphSection = document.getElementById("graph-section");
+  btn?.addEventListener("click", () => {
+    const wasHidden = graphSection.classList.contains("hidden");
+    graphSection.classList.toggle("hidden");
+    if (wasHidden && !graphSection.dataset.loaded) {
+      const ctx = document.getElementById("txGraph").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: txs.map((_, i) => "Tx " + (i + 1)),
+          datasets: [{
+            label: "Value (ETH)",
+            data: txs.map(t => parseFloat(t.value_eth || 0)),
+            backgroundColor: "rgba(59,130,246,0.6)",
+            borderColor: "#3b82f6",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { title: { display: true, text: "ETH Value" } } }
+        }
+      });
+      graphSection.dataset.loaded = true;
+    }
+  });
+
+  // --- vis.js Tree (FROM → TOs only) ---
+  const nodes = [];
+  const edges = [];
+  const seen = new Set();
+
+  if (txs.length > 0) {
+    const root = txs[0].from; // parent "FROM" wallet
+    nodes.push({
+      id: root,
+      label: "FROM\n" + root.slice(0, 10) + "…",
+      color: "#6366f1",
+      shape: "box",
+      font: { color: "#fff", bold: true }
+    });
+
+    txs.forEach((tx, i) => {
+      const to = tx.to || "contract_" + i;
+      if (!seen.has(to)) {
+        nodes.push({
+          id: to,
+          label: "TO\n" + to.slice(0, 10) + "…",
+          color: "#06b6d4",
+          shape: "box",
+          font: { color: "#fff" }
+        });
+        seen.add(to);
+      }
+      edges.push({ from: root, to: to, arrows: "to" });
+    });
+  }
+
+  const container = document.getElementById("tree-graph");
+  if (container && nodes.length > 0) {
+    new vis.Network(container, { nodes, edges }, {
+      layout: { hierarchical: { direction: "UD", sortMethod: "hubsize" } },
+      nodes: { shape: "box", font: { color: "#fff" } },
+      edges: { color: "#94a3b8" },
+      physics: false
+    });
+  }
+});
+</script>
+</body>
+</html>
+{% endblock %}

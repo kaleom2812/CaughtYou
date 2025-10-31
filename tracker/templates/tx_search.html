@@ -1,0 +1,915 @@
+{% extends "base.html" %}
+{% block title %}Last 10 Transactions{% endblock %}
+{% block content %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Transaction Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'dark-blue': '#0f172a',
+            'dark-surface': '#1e293b',
+            'dark-card': '#334155',
+            'accent-blue': '#3b82f6',
+            'accent-indigo': '#6366f1',
+            'accent-purple': '#8b5cf6',
+            'accent-green': '#10b981',
+            'success': '#10b981',
+            'error': '#ef4444',
+            'terminal-green': '#00ff00',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Source Code Pro', 'monospace'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'glow': 'glow 2s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            },
+            glow: {
+              '0%, 100%': { filter: 'brightness(1)' },
+              '50%': { filter: 'brightness(1.3)' },
+            }
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom cursor */
+    body {
+      cursor: none;
+    }
+    
+    .custom-cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: rgba(16, 185, 129, 0.7);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s;
+      box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.5);
+      animation: pulse 2s infinite;
+    }
+    
+    .custom-cursor.hover {
+      width: 40px;
+      height: 40px;
+      background-color: rgba(16, 185, 129, 0.4);
+    }
+    
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 5px 2px rgba(16, 185, 129, 0.5);
+      }
+      50% {
+        box-shadow: 0 0 15px 5px rgba(16, 185, 129, 0.7);
+      }
+      100% {
+        box-shadow: 0 0 5px 2px rgba(16, 185, 129, 0.5);
+      }
+    }
+    
+    /* Background canvas */
+    #bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+    
+    /* Card hover effects */
+    .hover-card {
+      transition: all 0.3s ease;
+    }
+    
+    .hover-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Button hover effects */
+    .btn-hover {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-hover:after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: 0.5s;
+    }
+    
+    .btn-hover:hover:after {
+      left: 100%;
+    }
+    
+    .btn-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Input hover effects */
+    .input-hover {
+      transition: all 0.3s ease;
+    }
+    
+    .input-hover:hover {
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+    }
+    
+    /* Glass card effect */
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(30, 41, 59, 0.7);
+    }
+    
+    /* Gradient border */
+    .gradient-border {
+      position: relative;
+      border-radius: 0.75rem;
+    }
+    
+    .gradient-border::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 0.75rem;
+      padding: 1px;
+      background: linear-gradient(to right, #3b82f6, #8b5cf6);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    
+    /* Link hover effect */
+    .link-hover {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .link-hover:after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      transform: scaleX(0);
+      height: 2px;
+      bottom: -2px;
+      left: 0;
+      background: linear-gradient(to right, #3b82f6, #8b5cf6);
+      transform-origin: bottom right;
+      transition: transform 0.3s ease-out;
+    }
+    
+    .link-hover:hover:after {
+      transform: scaleX(1);
+      transform-origin: bottom left;
+    }
+    
+    /* Frequency wave animation for cursor */
+    .frequency-wave {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      background-color: rgba(16, 185, 129, 0.2);
+      animation: frequency-expand 2s infinite;
+    }
+    
+    @keyframes frequency-expand {
+      0% {
+        width: 0;
+        height: 0;
+        opacity: 0.7;
+      }
+      100% {
+        width: 100px;
+        height: 100px;
+        opacity: 0;
+      }
+    }
+    
+    /* Terminal overlay */
+    .terminal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(15, 23, 42, 0.9);
+      z-index: 9998;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+    
+    .terminal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .terminal-window {
+      width: 80%;
+      max-width: 800px;
+      height: 60%;
+      max-height: 500px;
+      background-color: rgba(15, 23, 42, 0.95);
+      border: 1px solid #10b981;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: transform 0.5s, opacity 0.5s;
+    }
+    
+    .terminal-overlay.active .terminal-window {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    
+    .terminal-header {
+      background-color: rgba(30, 41, 59, 0.9);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #10b981;
+    }
+    
+    .terminal-title {
+      color: #10b981;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .terminal-controls {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .terminal-control {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    .terminal-control.close {
+      background-color: #ef4444;
+    }
+    
+    .terminal-control.minimize {
+      background-color: #f59e0b;
+    }
+    
+    .terminal-control.maximize {
+      background-color: #10b981;
+    }
+    
+    .terminal-body {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 14px;
+      color: #10b981;
+      position: relative;
+    }
+    
+    .terminal-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 16px;
+    }
+    
+    .terminal-line {
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      animation: typing 0.5s steps(40, end);
+    }
+    
+    @keyframes typing {
+      from { width: 0 }
+      to { width: 100% }
+    }
+    
+    .terminal-prompt {
+      color: #10b981;
+      margin-right: 8px;
+    }
+    
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background-color: #10b981;
+      animation: blink 1s infinite;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    
+    .terminal-progress {
+      height: 4px;
+      background-color: rgba(16, 185, 129, 0.2);
+      margin-top: 16px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .terminal-progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #10b981;
+      transition: width 0.5s ease;
+    }
+  </style>
+</head>
+<body class="bg-dark-blue text-white min-h-screen font-sans">
+  <!-- Custom cursor -->
+  <div class="custom-cursor"></div>
+  
+  <!-- Background canvas -->
+  <canvas id="bg-canvas"></canvas>
+  
+  <!-- Terminal overlay -->
+  <div class="terminal-overlay" id="terminal-overlay">
+    <div class="terminal-window">
+      <div class="terminal-header">
+        <div class="terminal-title">Transaction Search Terminal</div>
+        <div class="terminal-controls">
+          <div class="terminal-control minimize"></div>
+          <div class="terminal-control maximize"></div>
+          <div class="terminal-control close" id="terminal-close"></div>
+        </div>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-content" id="terminal-content">
+          <!-- Terminal content will be dynamically added here -->
+        </div>
+      </div>
+      <div class="terminal-progress">
+        <div class="terminal-progress-bar" id="terminal-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Main content -->
+  <div class="relative z-10 flex flex-col items-center px-4 py-12 max-w-7xl mx-auto">
+    <!-- Header with gradient -->
+    <div class="w-full max-w-3xl text-center mb-10">
+      <div class="inline-block p-2 bg-gradient-to-r from-accent-blue to-accent-purple rounded-full mb-4 animate-float">
+        <div class="bg-dark-blue rounded-full p-3">
+          <i class="fas fa-search-dollar text-3xl animate-glow"></i>
+        </div>
+      </div>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-accent-blue to-accent-purple bg-clip-text text-transparent">
+        Transaction Tracker
+      </h1>
+      <p class="text-gray-400 mt-2 text-lg">Track transactions across multiple blockchain networks</p>
+    </div>
+    
+    <!-- Search form with glass effect -->
+    <div class="glass-card gradient-border w-full max-w-3xl p-6 mb-10 hover-card">
+      <form method="get" action="/search/" class="space-y-4" id="search-form">
+        <div class="flex flex-col md:flex-row gap-4">
+          <div class="flex-1 relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <i class="fas fa-hashtag text-gray-500"></i>
+            </div>
+            <input type="text" 
+                  name="q" 
+                  placeholder="Paste transaction hash"
+                  value="{{ query }}" 
+                  class="w-full pl-10 p-4 rounded-lg bg-dark-surface border border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-accent-indigo focus:border-transparent transition duration-200 input-hover"
+                  id="transaction-hash">
+          </div>
+          
+          <div class="md:w-48">
+            <div class="relative">
+              <select name="chain" class="appearance-none w-full p-4 pr-10 rounded-lg bg-dark-surface border border-gray-700 text-white focus:ring-2 focus:ring-accent-indigo focus:border-transparent transition duration-200 input-hover" id="chain-select">
+                <option value="">All Chains</option>
+                {% for c in chains %}
+                  <option value="{{ c }}" {% if chain == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+                <!-- Add some default options for the demo -->
+                <option value="ethereum">Ethereum</option>
+                <option value="bsc">Binance Smart Chain</option>
+                <option value="polygon">Polygon</option>
+                <option value="arbitrum">Arbitrum</option>
+                <option value="optimism">Optimism</option>
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                <i class="fas fa-chevron-down text-gray-500"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Buttons: Search + Check History side-by-side on md+ -->
+        <div class="flex flex-col md:flex-row items-center gap-4">
+          <button type="button" 
+                  id="search-button"
+                  class="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-accent-blue to-accent-purple rounded-lg font-semibold transition duration-200 flex items-center justify-center gap-2 btn-hover">
+            <i class="fas fa-search"></i>
+            <span>Search Transaction</span>
+          </button>
+          <a href="last10/" 
+             id="history-button"
+             class="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-accent-blue to-accent-purple rounded-lg font-semibold transition duration-200 flex items-center justify-center gap-2 btn-hover"
+             role="button">
+            <i class="fas fa-history"></i>
+            <span>Check History</span>
+          </a>
+         <button><a href="{% url 'download_tx_pdf_plain' %}?q={{ tx.hash }}&chain={{ chain }}" class="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-accent-blue to-accent-purple rounded-lg font-semibold transition duration-200 flex items-center justify-center gap-2 btn-hover">Download PDF</a></button>
+        </div>
+      </form>
+      
+      {% if err %}
+        <div class="mt-4 p-4 bg-dark-surface border-l-4 border-error rounded-r-lg flex items-start gap-3">
+          <i class="fas fa-exclamation-circle text-error mt-0.5"></i>
+          <p class="text-gray-300">{{ err }}</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Transaction details card -->
+    {% if tx %}
+    <div class="glass-card gradient-border w-full max-w-3xl p-0 shadow-xl hover-card" id="transaction-details">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-accent-blue/20 to-accent-purple/20 p-6 rounded-t-xl flex items-center justify-between">
+        <h2 class="text-2xl font-bold flex items-center gap-2">
+          <i class="fas fa-receipt"></i>
+          <span>Transaction Details</span>
+        </h2>
+        <div class="px-3 py-1 rounded-full {% if tx.status == 'Success' %}bg-success/20 text-success{% else %}bg-error/20 text-error{% endif %} flex items-center gap-1.5 font-medium">
+          <i class="fas {% if tx.status == 'Success' %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+          <span>{{ tx.status }}</span>
+        </div>
+      </div>
+      
+      <!-- Content -->
+      <div class="p-6 space-y-5 text-gray-300">
+        <!-- Transaction hash with copy button -->
+        <div class="flex flex-col gap-1.5">
+          <div class="text-sm text-gray-400 font-medium">Transaction Hash</div>
+          <div class="flex items-center gap-2">
+            <div class="bg-dark-surface p-3 rounded-lg flex-1 font-mono text-sm overflow-x-auto whitespace-nowrap">
+              {{ tx.hash }}
+            </div>
+            <button class="p-2 bg-dark-surface rounded-lg hover:bg-dark-card transition btn-hover" title="Copy to clipboard">
+              <i class="fas fa-copy text-gray-400"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- From/To addresses -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- From -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">From</div>
+            <div class="bg-dark-surface p-3 rounded-lg hover:bg-dark-card/70 transition">
+              <a href="https://etherscan.io/address/{{ tx.from.0 }}" 
+                target="_blank" class="text-accent-blue link-hover flex items-center gap-1.5 break-all">
+                <i class="fas fa-wallet text-sm"></i>
+                <span class="text-sm">{{ tx.from.0 }}</span>
+                <i class="fas fa-external-link-alt text-xs ml-auto"></i>
+              </a>
+              {% if tx.from.1 %}
+                <div class="mt-1.5 text-xs bg-dark-card/50 py-1 px-2 rounded inline-block">
+                  <i class="fas fa-tag mr-1"></i> {{ tx.from.1 }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- To -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">To</div>
+            <div class="bg-dark-surface p-3 rounded-lg hover:bg-dark-card/70 transition">
+              <a href="https://etherscan.io/address/{{ tx.to.0 }}" 
+                target="_blank" class="text-accent-blue link-hover flex items-center gap-1.5 break-all">
+                <i class="fas fa-wallet text-sm"></i>
+                <span class="text-sm">{{ tx.to.0 }}</span>
+                <i class="fas fa-external-link-alt text-xs ml-auto"></i>
+              </a>
+              {% if tx.to.1 %}
+                <div class="mt-1.5 text-xs bg-dark-card/50 py-1 px-2 rounded inline-block">
+                  <i class="fas fa-tag mr-1"></i> {{ tx.to.1 }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Transaction details grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Value -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">Value</div>
+            <div class="bg-dark-surface p-3 rounded-lg flex items-center gap-2 hover:bg-dark-card/70 transition">
+              <i class="fas fa-coins text-amber-400"></i>
+              <span>{{ tx.value }} {{ chain|default:"ETH" }}</span>
+            </div>
+          </div>
+          
+          <!-- Gas -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">Gas</div>
+            <div class="bg-dark-surface p-3 rounded-lg flex items-center gap-2 hover:bg-dark-card/70 transition">
+              <i class="fas fa-gas-pump text-gray-400"></i>
+              <span>{{ tx.gas }}</span>
+            </div>
+          </div>
+          
+          <!-- Block -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">Block</div>
+            <div class="bg-dark-surface p-3 rounded-lg flex items-center gap-2 hover:bg-dark-card/70 transition">
+              <i class="fas fa-cube text-accent-purple"></i>
+              <span>{{ tx.block }}</span>
+            </div>
+          </div>
+          
+          <!-- Timestamp -->
+          <div class="flex flex-col gap-1.5">
+            <div class="text-sm text-gray-400 font-medium">Timestamp</div>
+            <div class="bg-dark-surface p-3 rounded-lg flex items-center gap-2 hover:bg-dark-card/70 transition">
+              <i class="fas fa-clock text-accent-blue"></i>
+              <span>{{ tx.time }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Chain info -->
+        <div class="flex justify-between items-center pt-4 border-t border-gray-700/50">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-gradient-to-r from-accent-blue to-accent-purple flex items-center justify-center">
+              <i class="fas fa-link text-xs"></i>
+            </div>
+            <span class="text-sm">Chain: <span class="font-medium">{{ chain|default:"Ethereum" }}</span></span>
+          </div>
+          
+          <a href="https://etherscan.io/tx/{{ tx.hash }}" target="_blank" class="text-accent-blue link-hover text-sm flex items-center gap-1.5 transition">
+            <span>View on Explorer</span>
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- JavaScript for animations and interactions -->
+  <script>
+    // Custom cursor with frequency animation
+    const cursor = document.querySelector('.custom-cursor');
+    let cursorX = 0;
+    let cursorY = 0;
+    let waveCount = 0;
+    const maxWaves = 3;
+    
+    document.addEventListener('mousemove', (e) => {
+      cursorX = e.clientX;
+      cursorY = e.clientY;
+      cursor.style.left = cursorX + 'px';
+      cursor.style.top = cursorY + 'px';
+      
+      // Create frequency wave effect on movement
+      const distance = Math.sqrt(
+        Math.pow(cursorX - (window.lastX || cursorX), 2) + 
+        Math.pow(cursorY - (window.lastY || cursorY), 2)
+      );
+      
+      if (distance > 30 && waveCount < maxWaves) {
+        createFrequencyWave(cursorX, cursorY);
+        waveCount++;
+      }
+      
+      window.lastX = cursorX;
+      window.lastY = cursorY;
+    });
+    
+    function createFrequencyWave(x, y) {
+      const wave = document.createElement('div');
+      wave.classList.add('frequency-wave');
+      wave.style.left = x + 'px';
+      wave.style.top = y + 'px';
+      document.body.appendChild(wave);
+      
+      // Remove wave after animation completes
+      setTimeout(() => {
+        document.body.removeChild(wave);
+        waveCount--;
+      }, 2000);
+    }
+    
+    document.addEventListener('mousedown', () => {
+      cursor.classList.add('hover');
+      createFrequencyWave(cursorX, cursorY);
+    });
+    
+    document.addEventListener('mouseup', () => {
+      cursor.classList.remove('hover');
+    });
+    
+    // Add hover class to cursor when hovering over interactive elements
+    const interactiveElements = document.querySelectorAll('a, button, input, select, .hover-card');
+    
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        cursor.classList.add('hover');
+      });
+      
+      el.addEventListener('mouseleave', () => {
+        cursor.classList.remove('hover');
+      });
+    });
+    
+    // Terminal animation
+    const terminalOverlay = document.getElementById('terminal-overlay');
+    const terminalContent = document.getElementById('terminal-content');
+    const terminalProgressBar = document.getElementById('terminal-progress-bar');
+    const terminalClose = document.getElementById('terminal-close');
+    const searchButton = document.getElementById('search-button');
+    const searchForm = document.getElementById('search-form');
+    const transactionHash = document.getElementById('transaction-hash');
+    const chainSelect = document.getElementById('chain-select');
+    const historyButton = document.getElementById('history-button');
+    
+    // Terminal text content
+    const terminalLines = [
+      { text: '> Initializing blockchain transaction search...', delay: 300 },
+      { text: '> Connecting to node endpoints...', delay: 500 },
+      { text: '> Establishing secure connection...', delay: 400 },
+      { text: '> Connection established.', delay: 300 },
+      { text: '> Preparing search query...', delay: 400 },
+      { text: function() { return `> Transaction hash: ${transactionHash.value || '0x0000000000000000000000000000000000000000000000000000000000000000'}`; }, delay: 300 },
+      { text: function() { return `> Network: ${chainSelect.options[chainSelect.selectedIndex].text || 'All Chains'}`; }, delay: 300 },
+      { text: '> Querying blockchain data...', delay: 800 },
+      { text: '> Fetching transaction details...', delay: 700 },
+      { text: '> Decoding transaction data...', delay: 600 },
+      { text: '> Analyzing transaction status...', delay: 500 },
+      { text: '> Retrieving wallet information...', delay: 600 },
+      { text: '> Cross-referencing with known entities...', delay: 700 },
+      { text: '> Calculating gas metrics...', delay: 400 },
+      { text: '> Verifying transaction integrity...', delay: 500 },
+      { text: '> Transaction data retrieved successfully.', delay: 300 },
+      { text: '> Rendering transaction details...', delay: 400 },
+      { text: '> Search complete.', delay: 300 }
+    ];
+    
+    // Close terminal
+    terminalClose.addEventListener('click', () => {
+      terminalOverlay.classList.remove('active');
+    });
+    
+    // Show terminal on search button click
+    searchButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      showTerminal();
+      
+      // Submit form after terminal animation completes
+      setTimeout(() => {
+        searchForm.submit();
+      }, calculateTotalDelay() + 500);
+    });
+
+    // If user clicks history-button, go straight to history (no terminal)
+    if (historyButton) {
+      historyButton.addEventListener('click', (e) => {
+        // allow the anchor default navigation; this handler is here if you later want to add confirmation
+      });
+    }
+    
+    function calculateTotalDelay() {
+      return terminalLines.reduce((total, line) => total + line.delay, 0) + 1000;
+    }
+    
+    function showTerminal() {
+      // Clear previous content
+      terminalContent.innerHTML = '';
+      terminalProgressBar.style.width = '0%';
+      
+      // Show terminal
+      terminalOverlay.classList.add('active');
+      
+      // Add initial prompt
+      const initialPrompt = document.createElement('div');
+      initialPrompt.classList.add('terminal-line');
+      initialPrompt.innerHTML = '<span class="terminal-prompt">$</span> search_transaction';
+      terminalContent.appendChild(initialPrompt);
+      
+      // Add terminal cursor
+      const cursor = document.createElement('span');
+      cursor.classList.add('terminal-cursor');
+      terminalContent.appendChild(cursor);
+      
+      // Animate terminal lines
+      let currentDelay = 500;
+      let currentProgress = 0;
+      
+      terminalLines.forEach((line, index) => {
+        setTimeout(() => {
+          // Add new line
+          const lineElement = document.createElement('div');
+          lineElement.classList.add('terminal-line');
+          
+          // Check if the line text is a function
+          const lineText = typeof line.text === 'function' ? line.text() : line.text;
+          lineElement.textContent = lineText;
+          
+          terminalContent.appendChild(lineElement);
+          
+          // Scroll to bottom
+          terminalContent.parentElement.scrollTop = terminalContent.parentElement.scrollHeight;
+          
+          // Update progress bar
+          currentProgress = ((index + 1) / terminalLines.length) * 100;
+          terminalProgressBar.style.width = `${currentProgress}%`;
+          
+          // Add blinking cursor to the last line
+          if (index === terminalLines.length - 1) {
+            setTimeout(() => {
+              const finalLine = document.createElement('div');
+              finalLine.classList.add('terminal-line');
+                            finalLine.classList.add('terminal-line');
+              finalLine.innerHTML = '<span class="terminal-prompt">$</span> <span>Showing results</span><span class="terminal-cursor"></span>';
+              terminalContent.appendChild(finalLine);
+              terminalContent.parentElement.scrollTop = terminalContent.parentElement.scrollHeight;
+            }, 400);
+          }
+        }, currentDelay);
+        
+        currentDelay += line.delay;
+      });
+    }
+
+    // ✅ Copy to clipboard for Transaction Hash + Addresses
+    document.querySelectorAll("button[title='Copy to clipboard']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const hashEl = btn.previousElementSibling;
+        if (hashEl) {
+          const text = hashEl.innerText.trim();
+          navigator.clipboard.writeText(text).then(() => {
+            const icon = btn.querySelector("i");
+            if (icon) {
+              const oldClass = icon.className;
+              icon.className = "fas fa-check text-success";
+              setTimeout(() => {
+                icon.className = oldClass;
+              }, 1500);
+            }
+          }).catch(err => {
+            console.error("Clipboard copy failed:", err);
+          });
+        }
+      });
+    });
+
+    // Optionally: add copy buttons for From/To addresses
+    document.querySelectorAll(".link-hover span").forEach((el) => {
+      el.addEventListener("dblclick", () => {
+        navigator.clipboard.writeText(el.innerText.trim()).then(() => {
+          alert("Copied: " + el.innerText.trim());
+        });
+      });
+    });
+     // === Background Blockchain Network Animation ===
+  const canvas = document.getElementById("bg-canvas");
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+
+  // Resize handler
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Subtle glowing particles (nodes)
+  const particles = new THREE.Group();
+  const particleGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+  const particleMaterial = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+  for (let i = 0; i < 150; i++) {
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    particle.position.set(
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 20
+    );
+    particles.add(particle);
+  }
+  scene.add(particles);
+
+  // Floating blockchain "cubes" (like blocks in chain)
+  const cubeGroup = new THREE.Group();
+  const cubeGeometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+  for (let i = 0; i < 20; i++) {
+    const cubeMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(`hsl(${Math.random() * 360}, 70%, 60%)`),
+      emissive: 0x111111,
+      roughness: 0.5,
+      metalness: 0.7,
+    });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(
+      (Math.random() - 0.5) * 15,
+      (Math.random() - 0.5) * 15,
+      (Math.random() - 0.5) * 15
+    );
+    cubeGroup.add(cube);
+  }
+  scene.add(cubeGroup);
+
+  // Lighting for glowing effect
+  const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+  const pointLight = new THREE.PointLight(0x3b82f6, 2, 50);
+  pointLight.position.set(5, 5, 5);
+  scene.add(ambientLight, pointLight);
+
+  // Camera setup
+  camera.position.z = 10;
+
+  // Mouse interaction (parallax effect)
+  let mouseX = 0, mouseY = 0;
+  document.addEventListener("mousemove", (e) => {
+    mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  // Animation loop
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Rotate cubes slowly
+    cubeGroup.rotation.x += 0.001;
+    cubeGroup.rotation.y += 0.002;
+
+    // Slight breathing animation for particles
+    particles.children.forEach((p, i) => {
+      p.position.y += Math.sin(Date.now() * 0.001 + i) * 0.0005;
+    });
+
+    // Smooth camera movement based on mouse
+    camera.position.x += (mouseX * 2 - camera.position.x) * 0.02;
+    camera.position.y += (mouseY * 2 - camera.position.y) * 0.02;
+    camera.lookAt(scene.position);
+
+    renderer.render(scene, camera);
+  }
+  animate();
+  {% comment %} <a href="last10_from_tx.html" class="btn btn-primary disabled" tabindex="-1" role="button" aria-disabled="true">Check history</a> {% endcomment %}
+  </script>
+</body>
+</html>
+{% endblock %}

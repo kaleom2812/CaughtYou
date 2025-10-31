@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}About | Blockchain Transaction Tracker{% endblock %}
+{% block content %}
+
+<div class="glass p-10 md:p-14 text-center text-white">
+  <h1 class="text-5xl font-extrabold mb-6 text-blue-400">
+    Blockchain Transaction Tracker
+  </h1>
+
+  <p class="text-lg mb-8 leading-relaxed max-w-3xl mx-auto">
+    <strong>Blockchain Transaction Tracker</strong> is an advanced web-based tool designed to explore, analyze, 
+    and visualize blockchain transactions. By entering a transaction hash or wallet address, users can view 
+    detailed insights such as <em>value (ETH)</em>, <em>block number</em>, <em>timestamp</em>, and <em>status</em>, 
+    along with an interactive graph showing transaction relationships.
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-8 text-left">
+    <div class="glass p-6">
+      <h2 class="text-2xl font-semibold mb-3 text-blue-300">✨ Key Features</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li>Real-time Ethereum transaction tracking.</li>
+        <li>Interactive wallet-to-wallet graph visualization.</li>
+        <li>PDF and JSON export for transaction data.</li>
+        <li>Multi-chain expansion support (Polygon, BSC, Avalanche).</li>
+      </ul>
+    </div>
+
+    <div class="glass p-6">
+      <h2 class="text-2xl font-semibold mb-3 text-blue-300">⚙️ Technologies Used</h2>
+      <table class="w-full text-left border-collapse">
+        <tr class="border-b border-gray-400"><td class="p-2 font-semibold">Frontend</td><td>HTML, Tailwind CSS, Chart.js, D3.js</td></tr>
+        <tr class="border-b border-gray-400"><td class="p-2 font-semibold">Backend</td><td>Django, Python</td></tr>
+        <tr class="border-b border-gray-400"><td class="p-2 font-semibold">Blockchain</td><td>Web3.py, Infura API</td></tr>
+        <tr><td class="p-2 font-semibold">Export</td><td>ReportLab (PDF)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="glass mt-10 p-6 text-left max-w-3xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-3 text-blue-300">🚀 Future Enhancements</h2>
+    <ul class="list-disc list-inside space-y-2">
+      <li>AI-based anomaly detection for suspicious transactions.</li>
+      <li>Support for multi-chain visualization dashboards.</li>
+      <li>Integrated chatbot for real-time blockchain insights.</li>
+      <li>Live transaction monitoring and alerts.</li>
+    </ul>
+  </div>
+
+  <div class="glass mt-10 p-6 text-left max-w-3xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-3 text-blue-300">⚠️ Disclaimer</h2>
+    <p class="text-gray-200 leading-relaxed">
+      The data displayed by the Blockchain Transaction Tracker is fetched from public blockchain networks 
+      via APIs such as Infura or Alchemy. This project is for educational and research purposes only. 
+      It does not store, modify, or facilitate any financial transactions.
+    </p>
+  </div>
+
+  <div class="mt-10">
+    <a href="/search/" 
+       class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl shadow-lg text-lg font-semibold">
+       Get Started
+    </a>
+  </div>
+</div>
+
+{% endblock %}
