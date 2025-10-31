@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: caughtyou
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn tracker_site.wsgi:application"
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        sync: false

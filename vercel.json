@@ -1,8 +1,0 @@
-{
-  "builds": [
-    { "src": "manage.py", "use": "@vercel/python" }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "manage.py" }
-  ]
-}
